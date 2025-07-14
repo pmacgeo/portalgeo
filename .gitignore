@@ -1,4 +1,5 @@
 geodata/
 off/
 .idea/
-public/*/*
+public/g
+tests/
