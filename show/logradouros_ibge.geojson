@@ -1,0 +1,66 @@
+{
+  "type": "FeatureCollection",
+  "name": "logradouros_arraial_do_cabo",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::4674"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "nome": "Avenida Leonel de Moura Brizola",
+        "tipo": "Avenida",
+        "bairro": "Centro",
+        "cep": "28930-000"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-42.0270, -22.9670],
+          [-42.0250, -22.9655],
+          [-42.0235, -22.9640]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 2,
+        "nome": "Rua Dom Pedro I",
+        "tipo": "Rua",
+        "bairro": "Praia dos Anjos",
+        "cep": "28930-000"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-42.0185, -22.9640],
+          [-42.0170, -22.9630],
+          [-42.0155, -22.9620]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 3,
+        "nome": "Travessa do Farol",
+        "tipo": "Travessa",
+        "bairro": "Praia do Forno",
+        "cep": "28930-000"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-42.0120, -22.9600],
+          [-42.0110, -22.9590],
+          [-42.0100, -22.9580]
+        ]
+      }
+    }
+  ]
+}

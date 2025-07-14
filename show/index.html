@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Arraial do Cabo - RJ | SIRGAS 2000</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.2em;
+            font-weight: 300;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .map-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        #map {
+            height: 700px;
+            width: 100%;
+        }
+
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #27ae60;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            z-index: 9999;
+        }
+
+        .status-indicator.loading {
+            background: #f39c12;
+        }
+
+        .status-indicator.error {
+            background: #e74c3c;
+        }
+
+        #diagnosticoPainel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            border: 2px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 300px;
+            z-index: 9999;
+        }
+
+        .diagnostico-item {
+            margin: 3px 0;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        .diagnostico-ok {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .diagnostico-erro {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .diagnostico-aviso {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+<div id="statusIndicator" class="status-indicator loading">Carregando mapa...</div>
+
+<div class="header">
+    <h1>Mapa Georreferenciado de Arraial do Cabo - RJ</h1>
+    <p>Sistema de Referência: SIRGAS 2000 (EPSG:4674)</p>
+</div>
+
+<div class="container">
+    <div class="map-container">
+        <div id="map"></div>
+    </div>
+</div>
+
+<div id="diagnosticoPainel">
+    <strong>📊 Diagnóstico do Sistema</strong>
+    <div id="statusLeaflet" class="diagnostico-item">🔄 Verificando Leaflet...</div>
+    <div id="statusRede" class="diagnostico-item">🔄 Verificando conexão...</div>
+    <div id="statusMapa" class="diagnostico-item">🔄 Verificando mapa...</div>
+    <div id="statusGeoJSON" class="diagnostico-item">🔄 Verificando GeoJSON...</div>
+    <div id="statusCamadas" class="diagnostico-item">🔄 Verificando camadas...</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    const statusIndicator = document.getElementById('statusIndicator');
+    let map;
+    let camadasCarregadas = 0;
+    let totalCamadas = 6;
+    let camadasPorTipo = {}; // Armazenar camadas por tipo
+
+    function atualizarStatus(mensagem, tipo = 'loading') {
+        statusIndicator.textContent = mensagem;
+        statusIndicator.className = `status-indicator ${tipo}`;
+        if (tipo === 'success') {
+            setTimeout(() => {
+                statusIndicator.style.display = 'none';
+            }, 3000);
+        }
+    }
+
+    function atualizarDiagnostico() {
+        const leafletOK = typeof L !== 'undefined';
+        document.getElementById('statusLeaflet').innerHTML = leafletOK ? '✅ Leaflet: Carregado' : '❌ Leaflet: Erro';
+        document.getElementById('statusLeaflet').className = leafletOK ? 'diagnostico-item diagnostico-ok' : 'diagnostico-item diagnostico-erro';
+
+        const redeOK = navigator.onLine;
+        document.getElementById('statusRede').innerHTML = redeOK ? '✅ Rede: Online' : '❌ Rede: Offline';
+        document.getElementById('statusRede').className = redeOK ? 'diagnostico-item diagnostico-ok' : 'diagnostico-item diagnostico-erro';
+
+        const mapaOK = document.getElementById('map') !== null && map !== undefined;
+        document.getElementById('statusMapa').innerHTML = mapaOK ? '✅ Mapa: Inicializado' : '❌ Mapa: Erro';
+        document.getElementById('statusMapa').className = mapaOK ? 'diagnostico-item diagnostico-ok' : 'diagnostico-item diagnostico-erro';
+
+        document.getElementById('statusGeoJSON').innerHTML = `📁 Camadas: ${camadasCarregadas}/${totalCamadas}`;
+        document.getElementById('statusGeoJSON').className = camadasCarregadas > 0 ? 'diagnostico-item diagnostico-ok' : 'diagnostico-item diagnostico-aviso';
+
+        const statusCamadas = camadasCarregadas === totalCamadas ? '✅ Todas carregadas' :
+            camadasCarregadas > 0 ? '⚠️ Parcialmente carregadas' : '❌ Nenhuma carregada';
+        document.getElementById('statusCamadas').innerHTML = statusCamadas;
+        document.getElementById('statusCamadas').className = camadasCarregadas === totalCamadas ? 'diagnostico-item diagnostico-ok' :
+            camadasCarregadas > 0 ? 'diagnostico-item diagnostico-aviso' : 'diagnostico-item diagnostico-erro';
+    }
+
+    function inicializarMapa() {
+        try {
+            atualizarStatus('Inicializando mapa...');
+            if (typeof L === 'undefined') {
+                throw new Error('Leaflet não foi carregado');
+            }
+            criarMapa();
+            atualizarStatus('Mapa inicializado com sucesso!', 'success');
+        } catch (error) {
+            console.error('❌ Erro ao inicializar mapa:', error);
+            atualizarStatus('Erro ao inicializar mapa', 'error');
+        }
+    }
+
+    function criarMapa() {
+        const centroCidade = [-22.9663, -42.0278];
+        const zoomInicial = 13;
+
+        map = L.map('map').setView(centroCidade, zoomInicial);
+
+        // Camadas base
+        const openStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 18,
+            zIndex: 1
+        });
+
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri, DigitalGlobe, GeoEye, Earthstar Geographics',
+            maxZoom: 18,
+            zIndex: 1
+        });
+
+        openStreetMap.addTo(map);
+
+        L.marker(centroCidade)
+            .addTo(map)
+            .bindPopup('<strong>Arraial do Cabo - RJ</strong><br>Centro da cidade')
+            .openPopup();
+
+        function carregarGeoJSONComDetalhes(nomeArquivo, estilo, nomeDisplay, tipoCamada) {
+            console.log(`🔄 Tentando carregar: ${nomeArquivo}`);
+
+            return fetch(nomeArquivo)
+                .then(response => {
+                    console.log(`📡 Resposta para ${nomeArquivo}:`, response.status, response.statusText);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.text();
+                })
+                .then(texto => {
+                    console.log(`📄 Conteúdo bruto de ${nomeArquivo}:`, texto.substring(0, 200) + '...');
+
+                    if (!texto || texto.trim().length === 0) {
+                        throw new Error('Arquivo completamente vazio');
+                    }
+
+                    let data;
+                    try {
+                        data = JSON.parse(texto);
+                    } catch (parseError) {
+                        throw new Error(`Erro ao fazer parse do JSON: ${parseError.message}`);
+                    }
+
+                    if (!data.type || data.type !== 'FeatureCollection') {
+                        throw new Error('Não é um FeatureCollection válido');
+                    }
+
+                    if (!data.features || !Array.isArray(data.features) || data.features.length === 0) {
+                        console.warn(`⚠️ ${nomeArquivo} não possui features válidas`);
+                        return null;
+                    }
+
+                    console.log(`✅ ${nomeArquivo} carregado com sucesso. Features:`, data.features.length);
+
+                    // Filtrar apenas features de Arraial do Cabo se necessário
+                    if (tipoCamada === 'municipios') {
+                        data.features = data.features.filter(f =>
+                            (f.properties.NM_MUN || f.properties.nm_municip || '').toLowerCase().includes('arraial do cabo')
+                        );
+                    }
+                    if (tipoCamada === 'limites') {
+                        data.features = data.features.filter(f =>
+                            (f.properties.NM_MUN || f.properties.nm_municip || '').toLowerCase().includes('arraial do cabo')
+                        );
+                    }
+                    if (tipoCamada === 'logradouros') {
+                        // data.features = data.features.filter(f =>
+                        //     f.properties.CD_MUN === '3300258'
+                        // );
+                    }
+                    if (tipoCamada === 'relevo') {
+                        data.features = data.features.filter(f =>
+                            f.properties.CD_MUN === '3300258'
+                        );
+                    }
+
+                    console.log(`🔍 Filtrado para Arraial do Cabo: ${data.features.length} features`);
+
+                    // Filtrar apenas features de Arraial do Cabo se necessário
+                    // if (tipoCamada === 'municipios') {
+                    //     data.features = data.features.filter(feature => {
+                    //         const nome = feature.properties.NM_MUN || feature.properties.nm_municip || feature.properties.NOME || '';
+                    //         return nome.toLowerCase().includes('arraial do cabo');
+                    //     });
+                    //     console.log(`🔍 Filtrado para Arraial do Cabo: ${data.features.length} features`);
+                    // }
+
+                    const layer = L.geoJSON(data, {
+                        style: function(feature) {
+                            return {
+                                ...estilo,
+                                opacity: estilo.opacity || 0.8,
+                                fillOpacity: estilo.fillOpacity || 0.3,
+                                weight: estilo.weight || 3
+                            };
+                        },
+                        pane: 'overlayPane',
+                        onEachFeature: function(feature, layer) {
+                            if (feature.properties) {
+                                let content = '<div style="font-family: Arial, sans-serif; max-width: 300px;">';
+                                content += `<h4 style="margin: 0 0 10px 0; color: #2c3e50;">${nomeDisplay}</h4>`;
+
+                                for (const prop in feature.properties) {
+                                    if (feature.properties[prop] !== null && feature.properties[prop] !== '') {
+                                        content += `<p style="margin: 3px 0; font-size: 12px;"><strong>${prop}:</strong> ${feature.properties[prop]}</p>`;
+                                    }
+                                }
+                                content += '</div>';
+                                layer.bindPopup(content);
+                            }
+
+                            // Efeitos de interação
+                            layer.on({
+                                mouseover: function(e) {
+                                    const targetLayer = e.target;
+                                    targetLayer.setStyle({
+                                        weight: (estilo.weight || 3) + 2,
+                                        opacity: 1,
+                                        fillOpacity: Math.min((estilo.fillOpacity || 0.3) + 0.3, 0.8)
+                                    });
+                                    if (targetLayer.bringToFront) {
+                                        targetLayer.bringToFront();
+                                    }
+                                },
+                                mouseout: function(e) {
+                                    const targetLayer = e.target;
+                                    targetLayer.setStyle(estilo);
+                                }
+                            });
+                        }
+                    });
+
+                    // Armazenar camada por tipo
+                    camadasPorTipo[tipoCamada] = layer;
+
+                    camadasCarregadas++;
+                    atualizarDiagnostico();
+                    return layer;
+                })
+                .catch(error => {
+                    console.error(`❌ Erro detalhado ao carregar ${nomeArquivo}:`, error);
+                    return null;
+                });
+        }
+
+        // Estilos otimizados para máxima visibilidade
+        const estilos = {
+            uf: {
+                color: '#2980b9',
+                weight: 8,
+                opacity: 1,
+                fillColor: '#2980b9',
+                fillOpacity: 0.05
+            },
+            municipios: {
+                color: '#27ae60',
+                weight: 6,
+                opacity: 1,
+                fillColor: '#27ae60',
+                fillOpacity: 0.1
+            },
+            limites: {
+                color: '#9b59b6',
+                weight: 5,
+                opacity: 1,
+                fillColor: '#9b59b6',
+                fillOpacity: 0.08
+            },
+            relevo: {
+                color: '#8b4513',
+                weight: 2,
+                opacity: 0.8,
+                fillColor: '#d2b48c',
+                fillOpacity: 0.3
+            },
+            logradouros: {
+                color: '#f39c12',  // Cor laranja vibrante
+                weight: 4,         // Espessura da linha adequada para visualização
+                opacity: 1         // Opacidade total para evitar transparência excessiva
+            },
+            bairros: {
+                color: '#e74c3c',
+                weight: 3,
+                opacity: 1,
+                fillColor: '#e74c3c',
+                fillOpacity: 0.15,
+                dashArray: '5,5'
+            }
+        };
+
+        // Carregar camadas em ordem específica
+        Promise.all([
+            carregarGeoJSONComDetalhes('uf_ibge.geojson', estilos.uf, 'Estados (UF) IBGE', 'uf'),
+            carregarGeoJSONComDetalhes('municipios_ibge.geojson', estilos.municipios, 'Municípios IBGE', 'municipios'),
+            carregarGeoJSONComDetalhes('limite_ibge.geojson', estilos.limites, 'Limites IBGE', 'limites'),
+            carregarGeoJSONComDetalhes('relevo_ibge.geojson', estilos.relevo, 'Relevo IBGE', 'relevo'),
+            carregarGeoJSONComDetalhes('logradouros_ibge.geojson', estilos.logradouros, 'Logradouros IBGE', 'logradouros'),
+            carregarGeoJSONComDetalhes('bairros_ibge.geojson', estilos.bairros, 'Bairros IBGE', 'bairros')
+        ]).then(function(layers) {
+            const baseMaps = {
+                "🗺️ OpenStreetMap": openStreetMap,
+                "🛰️ Imagem de Satélite": satelliteLayer
+            };
+
+            const overlayMaps = {};
+            const nomesCamadas = [
+                '🗾 Estados (UF) IBGE',
+                '🏛️ Municípios IBGE',
+                '🗺️ Limites IBGE',
+                '⛰️ Relevo IBGE',
+                '🛣️ Logradouros IBGE',
+                '🏘️ Bairros IBGE'
+            ];
+
+            // Processar cada camada
+            layers.forEach((layer, index) => {
+                if (layer) {
+                    overlayMaps[nomesCamadas[index]] = layer;
+                    console.log(`✅ Camada real adicionada: ${nomesCamadas[index]}`);
+                }
+            });
+
+            const totalCamadas = Object.keys(overlayMaps).length;
+            console.log(`📊 Total de camadas disponíveis: ${totalCamadas}`);
+
+            if (totalCamadas === 0) {
+                console.warn('⚠️ Nenhuma camada foi carregada');
+                return;
+            }
+
+            // Criar controle de camadas
+            const layerControl = L.control.layers(baseMaps, overlayMaps, {
+                position: 'topright',
+                collapsed: false
+            }).addTo(map);
+
+            console.log('✅ Controle de camadas adicionado ao mapa');
+
+            // ADICIONAR TODAS AS CAMADAS AUTOMATICAMENTE COM ORDEM CORRETA
+            const ordemAdicao = ['uf', 'municipios', 'limites', 'relevo', 'logradouros', 'bairros'];
+            let camadasAdicionadas = 0;
+
+            ordemAdicao.forEach((tipo, index) => {
+                const camada = camadasPorTipo[tipo];
+                if (camada) {
+                    camada.addTo(map);
+                    console.log(`✅ Camada ${tipo} adicionada ao mapa`);
+                    camadasAdicionadas++;
+                }
+            });
+
+            // Função para manter ordem das camadas (CORRIGIDA)
+            function organizarCamadas() {
+                ordemAdicao.forEach((tipo, index) => {
+                    const camada = camadasPorTipo[tipo];
+                    if (camada && camada.bringToFront) {
+                        setTimeout(() => {
+                            camada.bringToFront();
+                        }, index * 100);
+                    }
+                });
+            }
+
+            // Executar reorganização inicial e periodicamente
+            setTimeout(organizarCamadas, 1000);
+            setInterval(organizarCamadas, 5000);
+
+            atualizarDiagnostico();
+            console.log(`🎯 Mapa configurado com ${totalCamadas} camadas disponíveis`);
+            console.log(`📍 ${camadasAdicionadas} camadas visíveis automaticamente`);
+        });
+
+        // Controles adicionais
+        L.control.scale({
+            position: 'bottomleft',
+            metric: true,
+            imperial: false
+        }).addTo(map);
+
+        // Clique para coordenadas
+        map.on('click', function(e) {
+            L.popup()
+                .setLatLng(e.latlng)
+                .setContent(`
+                        <div style="font-family: monospace; font-size: 12px;">
+                            <strong>Coordenadas SIRGAS 2000:</strong><br>
+                            <strong>Lat:</strong> ${e.latlng.lat.toFixed(6)}°<br>
+                            <strong>Lng:</strong> ${e.latlng.lng.toFixed(6)}°
+                        </div>
+                    `)
+                .openOn(map);
+        });
+
+        console.log('✅ Mapa de Arraial do Cabo inicializado com sucesso!');
+    }
+
+    // Inicializar quando DOM estiver pronto
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(inicializarMapa, 100);
+        setInterval(atualizarDiagnostico, 2000);
+        atualizarDiagnostico();
+    });
+</script>
+</body>
+</html>
