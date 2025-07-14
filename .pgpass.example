@@ -1,0 +1,11 @@
+# Exemplo de arquivo .pgpass para autenticação automática no PostgreSQL Cada linha contém: hostname:port:database:username:password - 
+# hostname: O nome do host onde o servidor PostgreSQL está rodando (use "localhost" para conexões locais) - port: A porta do servidor 
+# PostgreSQL (padrão é 5432) - database: O nome do banco de dados que você deseja acessar (ex.: "geodata") - username: O nome do usuário 
+# PostgreSQL (ex.: "postgres") - password: A senha do usuário PostgreSQL (substitua por sua senha real) Exemplo para conexão local com o 
+# banco de dados "geodata", usuário "postgres":
+localhost:5432:geodata:postgres:sua_senha
+# Notas importantes: 1. Substitua "sua_senha" pela senha real do usuário "postgres". 2. O arquivo .pgpass deve estar localizado em ~/ (sua 
+# pasta home) ou outro caminho especificado pela variável PGPASSFILE. 3. As permissões do arquivo devem ser ajustadas para 0600 (somente 
+# leitura/escrita pelo proprietário) usando: chmod 0600 ~/.pgpass 4. Se o hostname, porta ou outros detalhes forem diferentes, ajuste os 
+# valores acima.
+# Este é um arquivo de exemplo. Não use diretamente para autenticação; copie para ~/.pgpass e ajuste os valores.

@@ -1,0 +1,31 @@
+#!/usr/bin/env zsh
+# apt install direnv && direnv allow 
+
+export PROJ_ROOT=$(pwd)
+
+declare -A DIR_ALIASES=(
+  [raiz]="$PROJ_ROOT"
+  [downloads]="$PROJ_ROOT/TemporaryFiles/Downloads/"
+  [cache]="$PROJ_ROOT/TemporaryFiles/Cache/"
+  [queries]="$PROJ_ROOT/SQL/Queries/"
+  [tables]="$PROJ_ROOT/SQL/Schemas/Public/"
+  [etls]="$PROJ_ROOT/SQL/Schemas/ETL/"
+  [shapefiles]="$PROJ_ROOT/Shapefiles/"
+  [bashes]="$PROJ_ROOT/Scripts/Bash/"
+  [backups]="$PROJ_ROOT/Dumps/Backups/"
+  [manuais]="$PROJ_ROOT/Docs/Manuais/"
+  [reports]="$PROJ_ROOT/Reports/"
+  [adhocs]="$PROJ_ROOT/Reports/AdHoc/"
+  [kmls]="$PROJ_ROOT/Data_Collection/Quadriciclos/KML/"
+  [projetos]="$PROJ_ROOT/QGISProjects/"
+)
+
+for alias_name in "${(@k)DIR_ALIASES}"; do
+  alias "$alias_name"="cd ${DIR_ALIASES[$alias_name]}"
+done
+
+dir() {
+  local key=$1
+  echo "${DIR_ALIASES[$key]}"
+} # ex.: cp "$(dir kmls)/kml.kml" "$(dir cache)"
+
