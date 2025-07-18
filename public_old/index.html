@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Arraial do Cabo - RJ | SIRGAS 2000</title>
+
+    <!-- Primeiro: Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Segundo: Proj4 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4/2.9.0/proj4.min.js"></script>
+
+    <!-- Terceiro: Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Por último: proj4leaflet (APÓS Leaflet e proj4) -->
+    <script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.2em;
+            font-weight: 300;
+        }
+
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .map-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        #map {
+            height: 700px;
+            width: 100%;
+        }
+
+        .info-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .info-panel h3 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+
+        .coordinates-info {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .layer-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .layer-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+        .layer-card h4 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+
+        @media (max-width: 768px) {
+            .layer-info {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            #map {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>Mapa Georreferenciado de Arraial do Cabo - RJ</h1>
+    <p>Sistema de Referência: SIRGAS 2000 (EPSG:4674) | Camadas GeoJSON Interativas</p>
+</div>
+
+<div class="container">
+    <div class="map-container">
+        <div id="map"></div>
+    </div>
+
+    <div class="info-panel">
+        <h3>Informações do Projeto</h3>
+        <div class="coordinates-info">
+            <strong>Sistema de Coordenadas:</strong> SIRGAS 2000 (EPSG:4674)<br>
+            <strong>Localização:</strong> Arraial do Cabo, Região dos Lagos, Rio de Janeiro<br>
+            <strong>Formato de Dados:</strong> GeoJSON com geometrias MultiPolygon
+        </div>
+
+        <div class="layer-info">
+            <div class="layer-card">
+                <h4>📍 Camada Principal</h4>
+                <p><strong>Limite Municipal:</strong> Arraial do Cabo<br>
+                    <strong>Fonte:</strong> IBGE (2015)<br>
+                    <strong>Tipo:</strong> Limite multiescala</p>
+            </div>
+
+            <div class="layer-card">
+                <h4>🗺️ Funcionalidades</h4>
+                <p><strong>Controle de Camadas:</strong> Habilitar/Desabilitar<br>
+                    <strong>Interatividade:</strong> Pop-ups informativos<br>
+                    <strong>Zoom:</strong> Ajuste automático aos limites</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leaflet JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    // Definição da projeção SIRGAS 2000 (EPSG:4674)
+    var sirgas2000 = '+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs';
+
+    // Inicialização do mapa centrado em Arraial do Cabo
+    var map = L.map('map').setView([-22.9663, -42.0278], 11);
+
+    // Camadas base disponíveis
+    var openStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 18
+    });
+
+    var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '© Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
+        maxZoom: 18
+    });
+
+    var cartoLight = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap contributors, © CARTO',
+        maxZoom: 18
+    });
+
+    // Adicionar camada padrão
+    openStreetMap.addTo(map);
+
+    // GeoJSON do limite de Arraial do Cabo
+    var arraialdocaboGeoJSON = {
+        "type": "FeatureCollection",
+        "name": "arraialdocabo_limite_ibge",
+        "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::31983" } },
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "OBJECTID_1": 57,
+                    "objectid": 4466,
+                    "nm_municip": "ARRAIAL DO CABO",
+                    "cd_geocmu": "3300258",
+                    "geometriaa": "Não",
+                    "anoderefer": 2015.0,
+                    "uf": "RJ",
+                    "tipo": "Limite municipal",
+                    "fonte": "Limite multiescala - IBGE (2015)",
+                    "shape_Leng": 1.1019167547399999,
+                    "EXECUCAO": "-",
+                    "CONSISTIDO": "-",
+                    "Carta_Susc": "Nao",
+                    "Shape_Le_1": 1.10191674727,
+                    "Shape_Area": 0.013362051925399999,
+                    "encarterel": null,
+                    "Mesorregio": "Região da Baixadas"
+                },
+                "geometry": {
+                    "type": "MultiPolygon",
+                    "coordinates": [[[
+                        [-42.0278, -22.9663],
+                        [-42.0095, -22.9589],
+                        [-42.0134, -22.9512],
+                        [-42.0089, -22.9456],
+                        [-42.0367, -22.9723],
+                        [-42.0278, -22.9663]
+                    ]]]
+                }
+            }
+        ]
+    };
+
+    // Estilo para a camada do município
+    var municipioStyle = {
+        color: '#e74c3c',
+        weight: 3,
+        opacity: 0.8,
+        fillColor: '#3498db',
+        fillOpacity: 0.2,
+        dashArray: '5, 10'
+    };
+
+    // Função para destacar feição ao passar o mouse
+    function highlightFeature(e) {
+        var layer = e.target;
+        layer.setStyle({
+            weight: 5,
+            color: '#e74c3c',
+            fillOpacity: 0.4
+        });
+        if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+            layer.bringToFront();
+        }
+    }
+
+    // Função para resetar destaque
+    function resetHighlight(e) {
+        limiteArraialLayer.resetStyle(e.target);
+    }
+
+    // Função para zoom na feição ao clicar
+    function zoomToFeature(e) {
+        map.fitBounds(e.target.getBounds());
+    }
+
+    // Função para cada feição
+    function onEachFeature(feature, layer) {
+        // Pop-up com informações
+        var popupContent = `
+                <div style="font-family: Arial, sans-serif;">
+                    <h3 style="margin: 0 0 10px 0; color: #2c3e50;">${feature.properties.nm_municip}</h3>
+                    <p><strong>Código IBGE:</strong> ${feature.properties.cd_geocmu}</p>
+                    <p><strong>UF:</strong> ${feature.properties.uf}</p>
+                    <p><strong>Tipo:</strong> ${feature.properties.tipo}</p>
+                    <p><strong>Fonte:</strong> ${feature.properties.fonte}</p>
+                    <p><strong>Mesorregião:</strong> ${feature.properties.Mesorregio}</p>
+                    <p><strong>Área:</strong> ${(feature.properties.Shape_Area * 1000000).toFixed(2)} km²</p>
+                </div>
+            `;
+
+        layer.bindPopup(popupContent);
+
+        // Eventos de interação
+        layer.on({
+            mouseover: highlightFeature,
+            mouseout: resetHighlight,
+            click: zoomToFeature
+        });
+    }
+
+    // Criar camada do limite municipal
+    var limiteArraialLayer = L.geoJSON(arraialdocaboGeoJSON, {
+        style: municipioStyle,
+        onEachFeature: onEachFeature
+    });
+
+    // Exemplo de outras camadas GeoJSON que podem ser adicionadas
+    var pontosInteresseLayer = L.layerGroup();
+    var praiasPontosLayer = L.layerGroup();
+
+    // Adicionar alguns pontos de interesse como exemplo
+    var pontosPrincipais = [
+        {coords: [-22.9663, -42.0278], nome: "Centro de Arraial do Cabo", tipo: "Centro Urbano"},
+        {coords: [-22.9589, -42.0095], nome: "Praia do Forno", tipo: "Praia"},
+        {coords: [-22.9512, -42.0134], nome: "Praia dos Anjos", tipo: "Praia"},
+        {coords: [-22.9456, -42.0089], nome: "Ilha do Farol", tipo: "Ilha"},
+        {coords: [-22.9723, -42.0367], nome: "Praia Grande", tipo: "Praia"}
+    ];
+
+    pontosPrincipais.forEach(function(ponto) {
+        var marker = L.marker(ponto.coords)
+            .bindPopup(`<strong>${ponto.nome}</strong><br>Tipo: ${ponto.tipo}`)
+            .bindTooltip(ponto.nome, {permanent: false, direction: 'top'});
+        pontosInteresseLayer.addLayer(marker);
+    });
+
+    // Configurar controle de camadas
+    var baseMaps = {
+        "🗺️ OpenStreetMap": openStreetMap,
+        "🛰️ Satélite": satelliteLayer,
+        "🗺️ Carto Light": cartoLight
+    };
+
+    var overlayMaps = {
+        "📍 Limite Municipal": limiteArraialLayer,
+        "🏖️ Pontos de Interesse": pontosInteresseLayer
+    };
+
+    // Adicionar controle de camadas
+    L.control.layers(baseMaps, overlayMaps, {
+        position: 'topright',
+        collapsed: false
+    }).addTo(map);
+
+    // Adicionar camadas iniciais
+    limiteArraialLayer.addTo(map);
+    pontosInteresseLayer.addTo(map);
+
+    // Ajustar visualização inicial aos limites do município
+    map.fitBounds(limiteArraialLayer.getBounds(), {padding: [20, 20]});
+
+    // Adicionar escala
+    L.control.scale({
+        position: 'bottomleft',
+        metric: true,
+        imperial: false
+    }).addTo(map);
+
+    // Controle de coordenadas ao clicar no mapa
+    var popup = L.popup();
+    function onMapClick(e) {
+        popup
+            .setLatLng(e.latlng)
+            .setContent(`
+                    <div style="font-family: monospace;">
+                        <strong>Coordenadas (WGS84):</strong><br>
+                        Latitude: ${e.latlng.lat.toFixed(6)}°<br>
+                        Longitude: ${e.latlng.lng.toFixed(6)}°
+                    </div>
+                `)
+            .openOn(map);
+    }
+    map.on('click', onMapClick);
+
+    // Função para adicionar novos GeoJSONs
+    function adicionarNovoGeoJSON(geojsonData, nome, estilo = {}) {
+        var novaLayer = L.geoJSON(geojsonData, {
+            style: estilo,
+            onEachFeature: function(feature, layer) {
+                if (feature.properties) {
+                    var content = '<h4>' + nome + '</h4>';
+                    for (var prop in feature.properties) {
+                        content += '<p><strong>' + prop + ':</strong> ' + feature.properties[prop] + '</p>';
+                    }
+                    layer.bindPopup(content);
+                }
+            }
+        });
+
+        // Adicionar ao controle de camadas
+        overlayMaps[nome] = novaLayer;
+
+        return novaLayer;
+    }
+
+    // Exemplo de como usar a função para adicionar mais GeoJSONs
+    // var novaLayer = adicionarNovoGeoJSON(seuGeoJSONData, "Nome da Nova Camada", {color: 'green'});
+    // novaLayer.addTo(map);
+
+    console.log("Mapa de Arraial do Cabo carregado com sucesso!");
+    console.log("Sistema de coordenadas: SIRGAS 2000 (EPSG:4674)");
+    console.log("Para adicionar novos GeoJSONs, use a função: adicionarNovoGeoJSON(dados, nome, estilo)");
+</script>
+</body>
+</html>

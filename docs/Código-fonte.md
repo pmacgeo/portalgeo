@@ -75,14 +75,14 @@ services:
   php:
     build: ./docker/php
     volumes:
-      - ./public:/var/www/html:ro
+      - ./public_old:/var/www/html:ro
     expose:
       - "9000"
 
   nginx:
     image: nginx:1.25-alpine
     volumes:
-      - ./public:/var/www/html:ro
+      - ./public_old:/var/www/html:ro
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "8080:80"

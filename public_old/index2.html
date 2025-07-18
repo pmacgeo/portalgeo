@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Portal de Mobilidade – Arraial do Cabo</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Estilos adicionais -->
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body class="h-screen overflow-hidden flex" x-data="mapApp()" x-init="init()">
+<!-- Menu lateral sempre visível -->
+<aside class="w-72 bg-white shadow-lg border-r border-gray-200 overflow-y-auto z-10 flex-shrink-0">
+    <div class="bg-blue-600 text-white p-4">
+        <h2 class="text-lg font-semibold">Camadas Disponíveis</h2>
+    </div>
+
+    <div class="p-4">
+        <template x-for="layer in layers" :key="layer.id">
+            <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                <label class="flex items-center gap-3 cursor-pointer flex-1">
+                    <input type="checkbox"
+                           :checked="layerInstances[layer.id] !== undefined"
+                           @change="toggleLayer(layer)"
+                           class="accent-blue-600 h-4 w-4 rounded">
+                    <div class="flex-1">
+                        <span x-text="layer.name" class="text-sm font-medium text-gray-700"></span>
+                        <div class="flex items-center gap-2 mt-1">
+                            <div class="w-4 h-4 rounded-full" :style="`background-color: ${layer.color}`"></div>
+                            <span class="text-xs text-gray-500" x-text="layer.type"></span>
+                        </div>
+                    </div>
+                </label>
+                <a :href="layer.url" download
+                   class="text-blue-500 text-xs hover:underline ml-2 flex-shrink-0">
+                    Baixar
+                </a>
+            </div>
+        </template>
+    </div>
+
+    <!-- Status de carregamento -->
+    <div x-show="loading" class="p-4 text-center">
+        <div class="text-sm text-gray-600">Carregando camada...</div>
+    </div>
+</aside>
+
+<!-- Área principal -->
+<div class="flex-1 flex flex-col">
+    <!-- Barra superior -->
+    <header class="bg-blue-600 text-white p-4 flex items-center flex-shrink-0">
+        <h1 class="text-lg font-semibold">Portal de Mobilidade Urbana - Arraial do Cabo</h1>
+        <div class="ml-auto text-sm">
+            <span x-text="Object.keys(layerInstances).length"></span> camadas ativas
+        </div>
+    </header>
+
+    <!-- Área do mapa -->
+    <div id="map" class="flex-1 w-full"></div>
+</div>
+
+<!-- AlpineJS -->
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Lógica principal -->
+<script src="app.js"></script>
+</body>
+</html>

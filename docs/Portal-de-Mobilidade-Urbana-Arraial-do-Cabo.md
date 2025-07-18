@@ -67,7 +67,7 @@ class GeoController
 {
     public function __invoke(Request $req, $layer)
     {
-        $path = storage_path("app/public/data/{$layer}.geojson");
+        $path = storage_path("app/public_old/data/{$layer}.geojson");
         return response()->file($path, ['Content-Type'=>'application/geo+json']);
     }
 }
